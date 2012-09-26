@@ -1,0 +1,6 @@
+Revision history for Perl extension Dancer::Plugin::FakeCGI.
+
+0.01  Wed Sep 26 21:25:38 2012
+	- original version; created by h2xs 1.23 with options
+		-XAn Dancer::Plugin::FakeCGI
+

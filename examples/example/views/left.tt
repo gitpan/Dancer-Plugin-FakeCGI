@@ -1,0 +1,3 @@
+<a href="/test_1" target=right >Standart CGI</a><br />
+<a href="/test_2" target=right >OOP CGI</a><br />
+<a href="/test_3" target=right >CGI file</a><br />

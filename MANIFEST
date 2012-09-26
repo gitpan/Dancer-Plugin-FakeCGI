@@ -1,0 +1,6 @@
+Changes
+Makefile.PL
+MANIFEST
+README
+t/Dancer-Plugin-FakeCGI.t
+lib/Dancer/Plugin/FakeCGI.pm
