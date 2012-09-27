@@ -34,9 +34,13 @@ Supports to run CGI perl files on CGI methods under Dancer.
           cgi-dir: 'cgi-bin'
           cgi-package: 'lib/CGI'
 
-C<cgi-dir> - for setting directory where is placed Perl CGI file, standart is 'cgi-bin'
+=over
 
-C<cgi-package> - for setting INC library where is CGI packages, standart is nothing.
+=item C<cgi-dir> - for setting directory where is placed Perl CGI file, standart is 'cgi-bin'
+
+=item C<cgi-package> - for setting INC library where is CGI packages, standart is nothing.
+
+=back
 
 =head1 TODO
 
@@ -84,21 +88,21 @@ BEGIN {
 
 # Loading setting
 sub _load_settings {
-	my $first = !defined($settings) ? 1 : 0;
+    my $first = !defined($settings) ? 1 : 0;
     $settings = plugin_setting() || {};
-	unshift(@INC, path(setting('confdir'), $settings->{'cgi-package'})) if ($first && $settings->{'cgi-package'});
+    unshift(@INC, path(setting('confdir'), $settings->{'cgi-package'})) if ($first && $settings->{'cgi-package'});
 }
 
 # Faked method for Apache->read is a built-in function, and so can do magic.
 # You can accomplish something similar with your own functions, though, by declaring a function prototype:
 sub _apache_read {
-	my $buf = \$_[0];
-	shift;
+    my $buf = \$_[0];
+    shift;
     my ($len, $offset) = @_;
 
-	no strict 'refs';
+    no strict 'refs';
     $$buf = substr(request->body(), $offset, $len);
-	return length($$buf);
+    return length($$buf);
 }
 
 # Faked method for Apache->args
@@ -134,35 +138,37 @@ sub _load_package {
         my ($eval_result, $eval_error) = _eval("package $pack;require $package @_;1;");
         croak("Problem with require $package: $eval_error") unless ($eval_result);
         $handle_require{$package} = 1;
-		return $eval_result;
+        return $eval_result;
     }
-	return 1;
+    return 1;
 }
 
 # Method for compile files
 sub _compile_file {
     my $file = shift;
 
-	my $timer = undef;
-	if (setting('use_timer')) {
-		$timer = Dancer::Timer->new();
-	}
+    my $timer = undef;
+    if (setting('use_timer')) {
+        $timer = Dancer::Timer->new();
+    }
 
     my $sub = undef;
     unless (exists($handle_require{$file})) {
-		# Change to current dir where is cgi-bin
-		my $currWorkDir = &Cwd::cwd();
-		#my $dir = dirname($file);
-		my $dir = path(setting('confdir'), ($settings->{'cgi-bin'} || 'cgi-bin'));
-		chdir($dir);
+
+        # Change to current dir where is cgi-bin
+        my $currWorkDir = &Cwd::cwd();
+
+        #my $dir = dirname($file);
+        my $dir = path(setting('confdir'), ($settings->{'cgi-bin'} || 'cgi-bin'));
+        chdir($dir);
         $sub = CGI::Compile->compile($file);
-		chdir($currWorkDir);
+        chdir($currWorkDir);
         $handle_require{$file} = $sub;
     } else {
         $sub = $handle_require{$file};
     }
 
-	debug("Loading $file in " . $timer->to_string . " seconds") if ($timer);
+    debug("Loading $file in " . $timer->to_string . " seconds") if ($timer);
     return $sub;
 }
 
@@ -260,6 +266,7 @@ sub _cgi_header {
     push(@header, "Content-Disposition: attachment; filename=\"$attachment\"") if $attachment;
     push(@header, map { ucfirst $_ } @other);
     push(@header, "Content-Type: $type") if $type ne '';
+
     #my $header = join($CRLF, @header) . "${CRLF}${CRLF}";
 
     #if (($MOD_PERL >= 1) && !$nph) {
@@ -336,7 +343,7 @@ sub _fake_after {
 
 Array of Hashref of methods which will be mocked.
 
-=head1 HASHREF of params
+=head3 HASHREF of params
 
 =over
 
@@ -365,7 +372,8 @@ register fake_cgi_mock => sub {
         $rh->{not_destroy} ||= 0;
         my $key = _key_fake_cgi_mock($rh->{package}, $rh->{method});
         $handle_mock{$key} = $rh;
-		#CGI->import($rh->{method}) if ($rh->{package} eq "CGI");
+
+        #CGI->import($rh->{method}) if ($rh->{package} eq "CGI");
     }
 };
 
@@ -373,15 +381,15 @@ register fake_cgi_mock => sub {
 
 Method for runned specified CGI method-function and return values of runned function.
 
-=head1 PARAMS
+=head3 PARAMS
 
 =over
 
-=item Package name where is method, which we run. Automatically load this package to memory in first run.
+=item 1. Package name where is method, which we run. Automatically load this package to memory in first run.
 
-=item Method name which we run.
+=item 2. Method name which we run.
 
-=item Arguments for given method 
+=item 3. Arguments for given method 
 
 =back
 
@@ -392,23 +400,26 @@ register fake_cgi_method => sub {
     my $method  = shift;
     my @args    = @_;
 
+    unless (defined($method)) {
+        croak("If not defined method in package, use 'fake_cgi_file'");
+        return;
+    }
+
     _load_settings() if (!$settings);
 
-   	return if ($package && !_load_package($package));
+    return if ($package && !_load_package($package));
 
-    return if (!defined($method));
-
-	unless ($package->can($method)) {
-		croak ("Not existed method '$method' in package '$package'");
-		return;
-	}
+    unless ($package->can($method)) {
+        croak("Not existed method '$method' in package '$package'");
+        return;
+    }
 
     _fake_before($package);
 
-	my $timer = undef;
-	if (setting('use_timer')) {
-		$timer = Dancer::Timer->new();
-	}
+    my $timer = undef;
+    if (setting('use_timer')) {
+        $timer = Dancer::Timer->new();
+    }
 
     my $ret;
     {
@@ -416,7 +427,7 @@ register fake_cgi_method => sub {
         $ret = &{(defined($package) ? ($package . "::") : "") . $method}(@args || undef);
     }
 
-	debug("Running method $method in package $package in " . $timer->to_string . " seconds") if ($timer);
+    debug("Running method $method in package $package in " . $timer->to_string . " seconds") if ($timer);
 
     _fake_after();
     return $ret;
@@ -424,31 +435,30 @@ register fake_cgi_method => sub {
 
 # Return filename
 sub _get_file_name {
-	my $name = shift;
+    my $name = shift;
 
     _load_settings() if (!$settings);
 
     unless (defined($name)) {
         croak("Not defined filename");
-		return undef;
-	}
+        return undef;
+    }
 
-	my $dir = path(setting('confdir'), ($settings->{'cgi-bin'} || 'cgi-bin'));
-	my $filename = $dir . "/" . $name;
-	if (!-s $filename) {
+    my $dir = path(setting('confdir'), ($settings->{'cgi-bin'} || 'cgi-bin'));
+    my $filename = $dir . "/" . $name;
+    if (!-s $filename) {
         croak("Can't read file $name in $dir");
-		return undef;
-	}
+        return undef;
+    }
 
-	return $filename;
+    return $filename;
 }
-
 
 =head2 fake_cgi_file
 
 Method for runned specified Perl CGI file and returned exit value
 
-=head1 PARAMS
+=head3 PARAMS
 
 =over
 
@@ -461,18 +471,18 @@ Method for runned specified Perl CGI file and returned exit value
 register fake_cgi_file => sub {
     my $file = shift;
 
-	my $fname = _get_file_name($file) || return;
+    my $fname = _get_file_name($file) || return;
     my $sub = _compile_file($fname);
 
     _fake_before();
 
-	my $timer = undef;
-	if (setting('use_timer')) {
-		$timer = Dancer::Timer->new();
-	}
+    my $timer = undef;
+    if (setting('use_timer')) {
+        $timer = Dancer::Timer->new();
+    }
 
     my $ret = &{$sub}() if (ref($sub));
-	debug("Running $file in " . $timer->to_string . " seconds") if ($timer);
+    debug("Running $file in " . $timer->to_string . " seconds") if ($timer);
 
     _fake_after();
 
@@ -481,7 +491,7 @@ register fake_cgi_file => sub {
 
 =head2 fake_cgi_as_string
 
-=head1 TYPES
+=head3 TYPES
 
 =over
 
@@ -496,7 +506,7 @@ register fake_cgi_file => sub {
 register fake_cgi_as_string => sub {
     if (@_ == 1 && ref($_[0]) eq "SCALAR") {
         my $str = $_[0];
-		$$str = "";
+        $$str = "";
         my $len = 0;
         while (my $line = $capture->read) {
             $len += length($line);
@@ -516,7 +526,7 @@ register fake_cgi_as_string => sub {
 
 Load packages into memory or Compiled files into memory
 
-=head1 PARAMS is array of HASHREF
+=head3 PARAMS is array of HASHREF
 
 =over
 
@@ -529,18 +539,18 @@ Load packages into memory or Compiled files into memory
 =cut
 
 register fake_cgi_compile => sub {
-	foreach my $rh (@_)	{
-		if (ref($rh) ne "HASH") { 
-			croak("Must be hash");
-		} elsif (exists($rh->{filename}))	{
-			my $fname = _get_file_name($rh->{filename});
+    foreach my $rh (@_) {
+        if (ref($rh) ne "HASH") {
+            croak("Must be hash");
+        } elsif (exists($rh->{filename})) {
+            my $fname = _get_file_name($rh->{filename});
             _compile_file($fname) if ($fname);
-		} elsif (exists($rh->{package}))	{
+        } elsif (exists($rh->{package})) {
             _load_package($rh->{package});
-		} else {
-			croak("Nothing defined");
-		}
-	}
+        } else {
+            croak("Nothing defined");
+        }
+    }
 };
 
 =head1 HOOKS
@@ -548,7 +558,7 @@ register fake_cgi_compile => sub {
 This plugin uses Dancer's hooks support to allow you to register code that
 should execute at given times.
 
-=head1 TYPES
+=head3 TYPES
 
 =over
 
@@ -560,7 +570,7 @@ should execute at given times.
 
 In both functions was as first arguments reference to C<IO::Capture::Stdout>
 
-=head1 EXAMPLE
+=head3 EXAMPLE
 
     hook 'fake_cgi_before' => sub {
         my $capture = shift;

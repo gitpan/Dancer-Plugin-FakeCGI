@@ -33,7 +33,7 @@ Settings callback for emulation Apache.pm from mod_perl version 1.
 
 Set callback function for specified called method from mod_perl::Apache.pm
 
-=head1 PARAMS 2
+=head3 PARAMS 2
 
 =over 
 
@@ -59,49 +59,47 @@ my %callback_func = ();
 
 # Function for setting callback
 sub _set_callback_func {
-	my ($name, $fn) = @_;
-	$callback_func{$name} = $fn;
+    my ($name, $fn) = @_;
+    $callback_func{$name} = $fn;
 }
 
-sub new
-{
+sub new {
     my $class = shift;
-    my $self = {};
+    my $self  = {};
     bless $self, $class;
     return $self;
 }
- 
+
 sub AUTOLOAD {
-	my $self = shift;
+    my $self = shift;
 
-	my $name = $AUTOLOAD;
-	$name =~ s/.*://;   # strip fully-qualified portion
+    my $name = $AUTOLOAD;
+    $name =~ s/.*://;    # strip fully-qualified portion
 
-	return new Apache() if ($name eq 'request');
-	return unless(exists($callback_func{$name}));
+    return new Apache() if ($name eq 'request');
+    return unless (exists($callback_func{$name}));
 
-	my $rh_f = $callback_func{$name};
-	{
+    my $rh_f = $callback_func{$name};
+    {
         no strict 'refs';
-		return &$rh_f(@_);
-	}
+        return &$rh_f(@_);
+    }
 }
 
 # Read function. Callback must returned given string
 sub read() {
     my $self = shift;
-    my $buf = \$_[0];	# Must be setted as scalarref
-	shift;
-	my ($len, $offset) = @_;
+    my $buf  = \$_[0];    # Must be setted as scalarref
+    shift;
+    my ($len, $offset) = @_;
 
-
-	return unless(exists($callback_func{'read'}));
+    return unless (exists($callback_func{'read'}));
 
     no strict 'refs';
-	return $callback_func{'read'}($$buf, $len, $offset);
+    return $callback_func{'read'}($$buf, $len, $offset);
 }
 
-DESTROY {}
+DESTROY { }
 
 =head1 AUTHOR
 
