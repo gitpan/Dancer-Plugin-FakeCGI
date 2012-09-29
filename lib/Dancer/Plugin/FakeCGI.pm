@@ -50,7 +50,7 @@ Emulation of this CGI methods: header(), cookie()
 
 =cut
 
-our $VERSION = '0.2';
+our $VERSION = '0.22';
 
 # Own handles
 my $capture        = undef;
@@ -194,6 +194,11 @@ sub _eval {
 
 # Retype header function
 sub _cgi_header {
+
+    # Must be returned one space character !!!
+    return " ";
+
+    # old CGI
     my @p = @_;
 
     shift(@p) if (@p && ref($p[0]));
@@ -211,10 +216,12 @@ sub _cgi_header {
 
     #$nph ||= $NPH;
 
-    $type ||= 'text/html' unless defined($type);
+    #$type ||= 'text/html' unless defined($type);
+	content_type $type if defined $type;
 
     # sets if $charset is given, gets if not
     #$charset = $self->charset( $charset );
+    charset($charset) if defined $charset;
 
     # rearrange() was designed for the HTML portion, so we
     # need to fix it up a little.
@@ -238,7 +245,9 @@ sub _cgi_header {
 
     #push(@header,"Server: " . &server_software()) if $nph;
 
-    push(@header, "Status: $status")        if $status;
+    #push(@header, "Status: $status")        if $status;
+    status($status) if ($status);
+
     push(@header, "Window-Target: $target") if $target;
     if ($p3p) {
         $p3p = join ' ', @$p3p if ref($p3p) eq 'ARRAY';
@@ -263,9 +272,10 @@ sub _cgi_header {
     push(@header, "Date: " . expires(0, 'http')) if $expires || $cookie || $nph;
 
     #push(@header, "Pragma: no-cache") if $self->cache();
-    push(@header, "Content-Disposition: attachment; filename=\"$attachment\"") if $attachment;
+    #push(@header, "Content-Disposition: attachment; filename=\"$attachment\"") if $attachment;
     push(@header, map { ucfirst $_ } @other);
-    push(@header, "Content-Type: $type") if $type ne '';
+    #push(@header, "Content-Type: $type") if $type ne '';
+	content_type $type if $type ne '';
 
     #my $header = join($CRLF, @header) . "${CRLF}${CRLF}";
 
@@ -275,9 +285,6 @@ sub _cgi_header {
     #}
     #return $header;
     #
-
-    # Must be returned one space character !!!
-    return " ";
 }
 
 # Retype cookie function
@@ -321,6 +328,8 @@ sub _fake_before {
     }
 
     $capture->start();    # STDOUT Output captured
+
+    CGI::initialize_globals() if defined &CGI::initialize_globals; # Initialize CGI
 
     Dancer::Factory::Hook->instance->execute_hooks('fake_cgi_before', $capture);
 }
@@ -552,6 +561,14 @@ register fake_cgi_compile => sub {
         }
     }
 };
+
+=head2 fake_cgi_capture
+
+Return handle of IO::Capture or undef, if not initialized
+
+=cut 
+
+register fake_cgi_capture => sub { return $capture; };
 
 =head1 HOOKS
 
