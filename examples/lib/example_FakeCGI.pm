@@ -1,4 +1,4 @@
-package example;
+package example_FakeCGI;
 
 use Dancer ':syntax';
 use Dancer::Plugin::FakeCGI;

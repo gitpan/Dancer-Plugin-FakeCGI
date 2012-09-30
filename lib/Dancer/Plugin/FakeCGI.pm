@@ -50,7 +50,7 @@ Emulation of this CGI methods: header(), cookie()
 
 =cut
 
-our $VERSION = '0.22';
+our $VERSION = '0.23';
 
 # Own handles
 my $capture        = undef;
