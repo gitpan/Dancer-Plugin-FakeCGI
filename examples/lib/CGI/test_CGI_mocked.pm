@@ -1,11 +1,22 @@
-package test_CGI;
+package test_CGI_mocked;
 
 use CGI ':standard';
 
 our $VERSION = '0.1';
 
+sub test_param {
+    if (param()) {
+        print "Your name is: ", em(param('name')),
+          p,
+          "The keywords are: ", em(join(", ", param('words'))),
+          p,
+          "Your favorite color is: ", em(param('color')),
+          hr;
+    }
+}
+
 sub test {
-    my $name = 'A Simple CGI Example';
+    my $name = 'A Simple mocked CGI Example';
 
     print header('text/html');
     print start_html($name),
@@ -26,15 +37,7 @@ sub test {
       submit,
       end_form,
       hr;
-
-    if (param()) {
-        print "Your name is: ", em(param('name')),
-          p,
-          "The keywords are: ", em(join(", ", param('words'))),
-          p,
-          "Your favorite color is: ", em(param('color')),
-          hr;
-    }
+    &test_param();
     print end_html;
 }
 

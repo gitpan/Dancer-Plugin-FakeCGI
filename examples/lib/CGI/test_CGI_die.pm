@@ -1,11 +1,11 @@
-package test_CGI;
+package test_CGI_die;
 
 use CGI ':standard';
 
 our $VERSION = '0.1';
 
 sub test {
-    my $name = 'A Simple CGI Example';
+    my $name = 'A Simple die CGI Example';
 
     print header('text/html');
     print start_html($name),
@@ -27,6 +27,8 @@ sub test {
       end_form,
       hr;
 
+    warn "Testing warn";
+    die "Testing die";
     if (param()) {
         print "Your name is: ", em(param('name')),
           p,

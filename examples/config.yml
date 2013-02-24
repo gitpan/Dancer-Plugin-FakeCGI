@@ -18,16 +18,20 @@ charset: "UTF-8"
 # simple: default and very basic template engine
 # template_toolkit: TT
 
-template: "simple"
-
-# template: "template_toolkit"
-# engines:
-#   template_toolkit:
-#     encoding:  'utf8'
-#     start_tag: '[%'
-#     end_tag:   '%]'
+#template: "simple"
+template: "template_toolkit"
+engines:
+ template_toolkit:
+  encoding:  'utf8'
+  start_tag: '<%'
+  end_tag:   '%>'
 
 plugins:
  FakeCGI:
   cgi-package: "lib/CGI"
+  cgi-dir: "cgi-bin"
+  cgi-bin: "/"
+  temp-dir: "tmp"
+  #stdout-type: "file"
+  cgi-bin_file_pattern: '*.pl'
 
