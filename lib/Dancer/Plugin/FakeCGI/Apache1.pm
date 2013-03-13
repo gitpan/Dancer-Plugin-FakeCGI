@@ -14,11 +14,11 @@ BEGIN {
 
 =head1 NAME
 
-Dancer::Plugin::FakeCGI::Apache - Simply emulation mod_perl version 1 for CGI
+Dancer::Plugin::FakeCGI::Apache1 - Simply emulation mod_perl version 1 for CGI
 
 =head1 CONTRIBUTING
 
-Thanks for developer B<Nigel Wetters Gourlay> from C<HTML::Mason> with his C<Apache-Emulator>
+Thanks for developer B<Nigel Wetters Gourlay> from C<HTML::Mason> with his C<Apache::Emulator>
 
 =cut
 

@@ -45,25 +45,25 @@ Supports to run CGI perl files on CGI methods under Dancer.
 
 =over
 
-=item C<cgi-dir> - for setting directory where is placed Perl CGI file, standart is 'cgi-dir'. This directory must be in root on Dancer directory.
+=item B<cgi-dir> - for setting directory where is placed Perl CGI file, standart is 'cgi-dir'. This directory must be in root on Dancer directory.
 
-=item C<cgi-bin> - web url directory where are Perl CGI files visible. Must be set.
+=item B<cgi-bin> - web url directory where are Perl CGI files visible. Must be set.
 
-=item C<cgi-package> - for setting INC library where is CGI packagesa(loaded from C<fake_cgi_method>), standart is nothing.
+=item B<cgi-package> - for setting INC library where is CGI packagesa(loaded from B<fake_cgi_method>), standart is nothing.
 
-=item C<cgi-class> - definition child-classes for CGI, it can be defined as ARRAY, standart every 'CGI*::'
+=item B<cgi-class> - definition child-classes for CGI, it can be defined as ARRAY, standart every 'CGI*::'
 
-=item C<stdout-type> - where will be saved captured string from STD[OUT|ERR], standart is capture into memory. Change with this options:
+=item B<stdout-type> - where will be saved captured string from F<STD[OUT|ERR]>, standart is capture into memory. Change with this options:
 
-=over
+=over 2
 
-=item C<file> - captured string will be saved in directory defined C<temp-dir> and in <after> hook will be avery temp file removed
+=item B<file> - captured string will be saved in directory defined B<temp-dir> and in C<after> hook will be avery temp file removed
 
-=item C<memory> - for saving captured string use IO::Scalar
+=item B<memory> - for saving captured string use IO::Scalar
 
 =back
 
-=item C<temp-dir> - temporary directory where will be save all captured files if C<stdout-type> is set to file. Best option is use C<file> captured and C<temp-dir> mount as RAM filesystem
+=item B<temp-dir> - temporary directory where will be save all captured files if B<stdout-type> is set to file. Best option is use B<file> captured and B<temp-dir> mount as RAM filesystem
 
 =back
 
@@ -71,17 +71,23 @@ Supports to run CGI perl files on CGI methods under Dancer.
 
 =over
 
-=item Maybe captured string parsed in HTTP::Message->parse
+=item B<1> - Maybe captured string parsed in HTTP::Message->parse
 
-=item CGI::Push use infinity loop which not existed than we don't capture any string from STDOUT and doesn't send any data.
+=item B<2> - CGI::Push use infinity loop which not existed than we don't capture any string from STDOUT and doesn't send any data.
 
-=item script_name() with referer
+=item B<3> - script_name() with referer
 
-=item Mod_PERL emulation for version 2
+=item B<4> - Mod_PERL emulation for version 2
 
-=item find better solution for capturing STD[OUT|ERR] under system() call when capture to memory used
+=item B<5> - find better solution for capturing STD[OUT|ERR] under system() call when capture to memory used
 
-=item Performance issue : every CGI files are loaded(served) 20-50% slowest then under Mod_PERL(Registry.pm). Difference is capture in memory and to file. In memory is 10-20% faster. One problem finded and there is Cwd::cwd() function which is slowest than getcwd() and take 65ms. CGI::Compile() is similar as Mod_PERL::PerlRun(). Everytime it run eval() on given loaded code. If we want to use behavior as Apache::Registry(), than should on first time evaled of given code to memory as package with function and other every call run this method to omited evaled code into memory.
+=item B<6> - Performance issue : 
+
+every CGI files are loaded(served) 20-50% slowest then under Mod_PERL(Registry.pm). This emulation get about 15-20ms more than uner Apache. Next difference is capture in memory and to file. 
+In memory is 10-20% faster. One problem finded and there is Cwd::cwd() function which is slowest than getcwd() and take 65ms. 
+CGI::Compile() is similar as Mod_PERL::PerlRun(). Everytime it run eval() on given loaded code. 
+If we want to use behavior as Apache::Registry(), than should on first time evaled of given code to memory as package with function and 
+other every call run this method to omited evaled code into memory.
 
 =back
 
@@ -89,9 +95,9 @@ Supports to run CGI perl files on CGI methods under Dancer.
 
 =over
 
-=item Not use infinity loop!!! Every CGI script must exited - finished to run properly in Dancer
+=item B<1> - Not use infinity loop!!! Every CGI script must exited - finished to run properly in Dancer
 
-=item Problem with fork|system function under HTTP::Server::Simple. This server make bad opening file descriptor of STDOUT. On this server it will be redirected to STDERR
+=item B<2> -Problem with fork|system function under HTTP::Server::Simple. This server make bad opening file descriptor of STDOUT. On this server it will be redirected to STDERR
 
 =back
 
@@ -99,7 +105,7 @@ Supports to run CGI perl files on CGI methods under Dancer.
 
 =cut
 
-our $VERSION = '0.60';
+our $VERSION = '0.62';
 
 # Own handles
 my $settings       = undef;
@@ -581,8 +587,16 @@ sub _compile_file {
         my $dir = _ret_cgi_bin_path();
         chdir($dir);
 
+        my ($eval, $package, $fn_name);
         if ($is_perl) {
-            $sub = CGI::Compile->compile($file, $package_name);
+
+            #$sub = CGI::Compile->compile($file, $package_name);
+            ($sub, $eval, $package, $fn_name) = CGI::Compile->compile($file, $package_name, undef, "handler");
+            unless ($sub) {
+                my ($eval_result, $eval_error) = _eval($eval);
+                no strict 'refs';
+                $sub = \&{$package . "::" . $fn_name};
+            }
         } else {
             my $cgi = $file;
             $cgi =~ s/^\.//;
@@ -603,13 +617,14 @@ sub _compile_file {
             };
         }
         chdir($currWorkDir);
-        $handle_require{$file} = {mtime => $mtime, code => $sub, is_perl => $is_perl};
+        $handle_require{$file} =
+          {mtime => $mtime, code => $sub, is_perl => $is_perl, package => $package, func => $fn_name, loaded => 0};
     } elsif (ref($handle_require{$file}) eq "HASH") {
         $sub = $handle_require{$file}->{'code'};
     }
 
     debug("Loading $file");
-    return $sub;
+    return $sub, $handle_require{$file};
 }
 
 # return int from scalar
@@ -779,38 +794,38 @@ hook before_template_render => sub {
     _fix_CGI_into_Dancer();    # Fix Dancer variables after CGI runned before template rendering
 };
 
-=head3 Capture reference to HASH
+=head3 <$capture> - is reference to this HASH
 
 =over
 
-=item C<STDOUT|STDERR> - type of captured string for given output. It is HASH reference to other options.
+=item F<STDOUT|STDERR> - type of captured string for given output. It is HASH reference to this other options:
 
-=over
+=over 2
 
-=item C<string> - if setting enabled capturing to memory this is string contains every characters captured
+=item B<string> - if setting enabled capturing to memory this is string contains every characters captured
 
-=item C<io_fh> - handler to IO::File if is set to capturing into file, if is set to memory it is handler to IO::Scalar
+=item B<io_fh> - handler to L<IO::File> if is set to capturing into file, if is set to memory it is handler to L<IO::Scalar>
 
-=item C<filename> - filename with path if capturing is to file
+=item B<filename> - filename with path if capturing is to file
 
-=item C<header_len> - this is size of HTTP header. On this position start HTML content. It is only for capturing into file
+=item B<header_len> - this is size of HTTP header. On this position start HTML content. It is only for capturing into file
 
-=item C<std_fh> - saved original filehandler into this param if is capturing enabled. If capturing stop than this option not exist
+=item B<std_fh> - saved original filehandler into this param if is capturing enabled. If capturing stop than this option not exist
 
 =back
 
 =back
 
 
-=head3 PARAMS for _run_code() as hashref
+=head3 PARAMS for C<_run_code()> is hashref
 
 =over
 
-=item C<capture_stderr> - STDERR will be captured similar as STDOUT and wheb eval finished, that will be loged
+=item B<capture_stderr> - B<STDERR> will be captured similar as B<STDOUT> and when eval(_run_code) finished, that will be loged
 
-d=item C<timeout> - in seconds which can timeouted given eval via alaram() function. 0|undefined - disabled it
+=item B<timeout> - in seconds which can timeouted given eval via alarm() function. If is B<0|undefined> - disabled it
 
-=item C<ret_error> - try run given code and return after eval
+=item B<ret_error> - try run given code and return after eval
 
 =back
 
@@ -1042,7 +1057,7 @@ sub _clean_url_string {
 
 =head2 fake_cgi_bin_url($name[,@other])
 
-Method which return url for given C<$name>. If set C<@other>, than this will be append to given URL
+Method which return url for given C<$name>. If set C<@other>, than this will be append to given URL with separattor B</>
 
 =cut
 
@@ -1061,17 +1076,15 @@ register fake_cgi_bin_url => sub {
 
 Method for runned specified CGI method-function and return values of runned function.
 
-=head3 PARAMS
-
 =over
 
-=item C<$package> - Package name where is method, which we run. Automatically load this package to memory in first run.
+=item B<$package> - Package name where is method, which we run. Automatically load this package to memory in first run.
 
-=item C<$method> - Method name which we run.
+=item B<$method> - Method name which we run.
 
-=item C<$params> - Hash ref of params, look of params to C<_run_code()>
+=item B<$params> - Hash ref of params, look of params to C<_run_code()>
 
-=item C<@args> - Arguments for given method 
+=item B<@args> - Arguments for given method 
 
 =back
 
@@ -1114,15 +1127,13 @@ register fake_cgi_method => sub {
 
 Method for runned specified Perl CGI file and returned exit value
 
-=head3 PARAMS
-
 =over
 
-=item C<$file> - CGI filename and first in first run we compiled this file into memory
+=item B<$file> - CGI filename and first in first run we compiled this file into memory
 
-=item C<$params> - Hash ref of params, look of params to C<_run_code()>
+=item B<$params> - Hash ref of params, look of params to C<_run_code()>
 
-=item C<$test_is_perl> - try first if given file is Perl code, default we use given filename as is Perl script.
+=item B<$test_is_perl> - try first if given file is Perl code, default we use given filename as is Perl script.
 
 =back
 
@@ -1136,7 +1147,7 @@ register fake_cgi_file => sub {
 
     my $is_perl = 1;
     $is_perl = fake_cgi_is_perl($fname) if ($test_is_perl);
-    my $sub = _compile_file($fname, $is_perl);
+    my ($sub, $rh) = _compile_file($fname, $is_perl);
 
     my $ret = _run_code($sub, $params, $file);
     debug("Running $file ");
@@ -1145,17 +1156,15 @@ register fake_cgi_file => sub {
 
 =head2 fake_cgi_compile(@args)
 
-Load packages into memory or Compiled files into memory
-
-=head3 PARAMS is array of HASHREF
+Load packages into memory or Compiled files into memory. B<@args> is array of this HASHREF options:
 
 =over
 
-=item filename => compile Perl filename into memory
+=item B<package> - load package into memory
 
-=item package  => load package into memory
+=item B<filename> - compile Perl filename into memory
 
-=item test_is_perl => if C<filename> than test if it is Perl CGI file
+=item B<test_is_perl> - if B<filename> than run test if it is Perl CGI file
 
 =back
 
@@ -1199,13 +1208,11 @@ Tries to figure out whether the CGI is Perl code or not.
 
 Return 1 if its Perl code otherwise is 0.
 
-=head3 PARAMS
-
 =over
 
-=item C<$file> - filename of test file
+=item B<$file> - filename of test file
 
-=item C<$compile> - if true and given tested file is Perl code, than compiled given file into memory
+=item B<$compile> - if true and given tested file is Perl code, than compiled given file into memory
 
 =back
 
@@ -1265,24 +1272,25 @@ register fake_cgi_is_perl => sub {
     exit;
 };
 
-=head2 fake_cgi_bin($code, $patterns)
+=head2 fake_cgi_bin($code, $patterns, $test_is_perl)
 
-Automatically serve CGI files from C<cgi-dir> directory
+Automatically serve CGI files from B<cgi-dir> directory
 
-plugins:
-  FakeCGI:
-    cgi-bin_file_pattern: *.cgi
+    plugins:
+       FakeCGI:
+          cgi-bin_file_pattern: *.cgi
 
-Setting C<cgi-bin_file_pattern> can be defined as array is pattern of file or files, which will be readed and try to compiled and setted to run as CGI.
-
-=head3 PARAMS
+Setting B<cgi-bin_file_pattern> can be defined as array is pattern of file or files, which will be readed and try to compiled and setted to run as CGI.
 
 =over
 
-=item C<$code> - reference for code with this options, if not set, than automatically add servering for given file with this options. 
-If not return true, than serve given CGI files in standart way. This is parametter for given called code.
+=item B<$code> - reference for code, if not set, than automatically add servering for given file with this options. 
 
-=over
+Given method should return B<true> or B<false>. If given code no return true, than serve given CGI files in standart way. 
+
+This is parametter for given called code:
+
+=over 3
 
 =item directory
 
@@ -1294,9 +1302,9 @@ If not return true, than serve given CGI files in standart way. This is paramett
 
 =back
 
-=item C<$paterns> - is scalar or can be array ref. If not set, than will be set from settings, otherwise read everything which kind of file will be readed
+=item B<$paterns> - is scalar or can be array ref. If not set, than will be set from settings, otherwise read everything which kind of file will be readed
 
-=item C<$test_is_perl> - test if readable file it is Perl CGI file, if not defined, than we use every file as Perl CGI.
+=item B<$test_is_perl> - test if readable file it is Perl CGI file, if not defined, than we use every file as Perl CGI.
 
 =back
 
@@ -1306,31 +1314,31 @@ If not return true, than serve given CGI files in standart way. This is paramett
 
 =item Standart definition in setting file:
 
-plugins:
-  FakeCGI:
-    cgi-bin_file_pattern: "*.pl"
+    plugins:
+       FakeCGI:
+          cgi-bin_file_pattern: "*.pl"
 
-In yours Dancer package only put C<fake_cgi_bin();> and this script try to load every C<*.pl> files in C<cgi-bin> directory under Dancer directory. 
+In yours Dancer package only put C<fake_cgi_bin();> and this script try to load every B<*.pl> files in B<cgi-bin> directory under Dancer directory. 
 
 =item Tested files in own function for every *.pl and *.sh file:
 
-sub test_file	{
- my ($cgi_bin, $cgi, $url, $is_perl) = @_;
+    sub test_file	{
+        my ($cgi_bin, $cgi, $url, $is_perl) = @_;
 
- return 1 if ($cgi =~ /^\./);     # skip serving this file 
- return 1 if ($cgi =~ /test.pl/); # skip serving this file  
+        return 1 if ($cgi =~ /^\./);     # skip serving this file 
+        return 1 if ($cgi =~ /test.pl/); # skip serving this file  
 
- if ($cgi eq "index.pl") {  # own serving for given file
-    any $url => sub {
-        redirect "/index.sh";
-    };
-    return 1;
- }
+        if ($cgi eq "index.pl") {  # own serving for given file
+            any $url => sub {
+                redirect "/index.sh";
+            };
+            return 1;
+        }
 
- return 0; # default server
-}
+        return 0; # default server
+    }
 
-fake_cgi_bin(\&test_file, ["*.pl", "*.sh"], 1);
+    fake_cgi_bin(\&test_file, ["*.pl", "*.sh"], 1);
 
 =back
 
@@ -1385,52 +1393,63 @@ register fake_cgi_bin => sub {
     }
 };
 
-=head2 fake_cgi_as_string()
+=head2 fake_cgi_as_string($ret_ref)
 
-Return captured strings from CGI, which will be printed to STDOUT
+Return captured strings from CGI, which will be printed to STDOUT. 
+
+If B<$ret_ref> than given string will be returned as reference to SCALAR. 
+This option can make better performance.
 
 =cut
 
 register fake_cgi_as_string => sub {
+    my ($self, $ret_ref) = plugin_args(@_);
+
     return "" if (ref($capture) ne "HASH" || !exists($capture->{"STDOUT"}));
+
+    my $ret = "";
     if ($capture->{"STDOUT"}->{"string"}) {
 
         #my $str = $capture->{io_out}->sref;
         #return $str ? $$str : "";
-        return $capture->{"STDOUT"}->{"string"} || "";
+        $ret = $capture->{"STDOUT"}->{"string"};
     } elsif ($capture->{"STDOUT"}->{"io_fh"}) {
         my $fh     = $capture->{"STDOUT"}->{"io_fh"};
         my $curpos = tell($fh);
         my $pos    = $capture->{"STDOUT"}->{"header_len"} || 0;
         seek($fh, $pos > 0 ? $pos : 0, SEEK_SET);
-        my $str = do { local $/; <$fh>; };
+        $ret = do { local $/; <$fh>; };
         seek($fh, $curpos, SEEK_SET);
-        return $str || "";
     }
-    return "";
+
+    if ($ret_ref) {
+        $ret ||= "";
+        return \$ret;
+    }
+    return $ret || "";
 };
 
-=head2 fake_cgi_capture([$capture_start])
+=head2 fake_cgi_capture($capture_start)
 
 This method every time return actuall settings form capture method.
 
-If argument C<$capture_start> is defined, can be possible START or STOP capturing.
+If argument B<$capture_start> is defined, can be possible START or STOP capturing with this options:
 
 =over
 
-=item C<true|1> - capturing will be initalized or restarted. Every data in restarting will bi appended.
+=item B<true|1> - capturing will be initalized or restarted. Every data in restarting will bi appended.
 
-=item C<false|0> - capturing
+=item B<false|0> - capturing
 
 =back
 
-=head3 RETURN array 
+=head3 RETURN array of this position:
 
 =over
 
-=item Hash reference for $capture 
+=item Hash reference for B<$capture>
 
-=item IO::Scalar or IO::File of captured STDOUT strings
+=item L<IO::Scalar> or L<IO::File> of captured STDOUT strings
 
 =item actual position of seek() - tell() method
 
@@ -1490,9 +1509,9 @@ This plugin uses Dancer's hooks support to allow you to register code that shoul
 
 =over
 
-=item fake_cgi_before($env,$capture) : hook which will be called before run CGI method or Perl CGI file. Arguments is HASH reference to %ENV and reference to $capture
+=item B<fake_cgi_before($env,$capture)> : hook which will be called before run CGI method or Perl CGI file. Arguments is HASH reference to %ENV and reference to $capture
 
-=item fake_cgi_after($capture)  : hook which will be called after runned CGI method or Perl CGI file. Arguments is reference to $capture
+=item B<fake_cgi_after($capture)>  : hook which will be called after runned CGI method or Perl CGI file. Arguments is reference to $capture
 
 =back
 
